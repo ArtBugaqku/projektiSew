@@ -4,7 +4,6 @@ import { faDollarSign } from "@fortawesome/free-solid-svg-icons";
 import { faLocationDot } from "@fortawesome/free-solid-svg-icons";
 import { faBookmark as faBookmarkRegular } from "@fortawesome/free-regular-svg-icons";
 import { faBookmark as faBookmarkSolid } from "@fortawesome/free-solid-svg-icons";
-import { faBookmark } from "@fortawesome/free-regular-svg-icons";
 import { faClock } from "@fortawesome/free-regular-svg-icons";
 import { faArrowRightLong } from "@fortawesome/free-solid-svg-icons";
 import "../index.css";
@@ -19,7 +18,6 @@ function ShpalljaCard({ shpallja }) {
   const [eshteRuajtur, setEshteRuajtur] = useState(false);
   const [duke_ngarkuar, setDuke_ngarkuar] = useState(false);
 
-  // Kontrollo nëse shpallja është ruajtur kur komponenti ngarkohet
   useEffect(() => {
     const kontrolloStatusin = async () => {
       if (perdoruesiData && perdoruesiData.tipiPerdoruesit !== "punedhenes") {
@@ -42,7 +40,7 @@ function ShpalljaCard({ shpallja }) {
   };
 
   const ndryshoRuajtjen = async (e) => {
-    e.stopPropagation(); // Parandalon klikimin e kartelës kur klikon bookmark
+    e.stopPropagation();
 
     if (!perdoruesiData) {
       alert("Ju lutem kyçuni për të ruajtur punë");
@@ -50,13 +48,12 @@ function ShpalljaCard({ shpallja }) {
     }
 
     if (perdoruesiData.tipiPerdoruesit === "punedhenes") {
-      return; // Punëdhënësit nuk mund të ruajnë punë
+      return;
     }
 
     setDuke_ngarkuar(true);
     try {
       if (eshteRuajtur) {
-        // Hiq nga të ruajturat
         const response = await axios.delete(
           `http://localhost:3000/api/punetRuajtura/hiq/${shpallja._id}`,
           {
@@ -115,6 +112,7 @@ function ShpalljaCard({ shpallja }) {
           {" "}
           <FontAwesomeIcon icon={faClock} className="mr-1" />
           {shpallja.orari}
+          {shpallja.status}
         </p>
         <p className="paragraf font-light">{shpallja.niveliPunes}</p>
       </div>
@@ -130,27 +128,6 @@ function ShpalljaCard({ shpallja }) {
               icon={faLocationDot}
               className="mr-1 text-gray-600"
             />
-            </p>
-        <FontAwesomeIcon icon={faBookmark} className="text-l" />
-      </div>
-      <p className="grid mt-6 font-bold text-l">{shpallja.pozitaPunes}</p>
-      <div className="flex gap-5 mt-2">
-        <p className="paragraf">
-          {" "}
-          <FontAwesomeIcon icon={faClock} />
-          {shpallja.orari}
-        </p>
-        <p className="paragraf">{shpallja.niveliPunes}</p>
-      </div>
-      <hr className="border-0 h-px bg-linear-to-r from-transparent via-gray-300 to-transparent mt-8 mb-3" />
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-l font-semibold flex items-center">
-            <FontAwesomeIcon icon={faDollarSign} className="mr-1" />
-            {shpallja.pagaPrej}-{shpallja.pagaDeri}
-          </p>
-          <p className="paragraf text-sm text-gray-600 flex items-center mt-1">
-            <FontAwesomeIcon icon={faLocationDot} className="mr-1" />
             {shpallja.lokacioniPunes}
           </p>
         </div>
@@ -173,7 +150,7 @@ function ShpalljaCard({ shpallja }) {
         </button>
       </div>
     </div>
-    </div>
   );
 }
+
 export default ShpalljaCard;

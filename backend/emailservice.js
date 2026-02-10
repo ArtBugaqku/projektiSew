@@ -24,11 +24,11 @@ const dergoMesazhin = async (emailPerdoruesit, subjekti, mesazhi) => {
           <div style="max-width:500px;margin:auto;background:#ffffff;border-radius:10px;padding:32px;text-align:center;">
             
             <h2 style="color:#111827;margin-bottom:10px;">
-              Verifiko email-in
+                ${subjekti}
             </h2>
 
             <p style="color:#4b5563;font-size:15px;margin-bottom:30px;">
-              Përdor kodin më poshtë për të verifikuar llogarinë tënde
+                ${mesazhi}
             </p>
 
             <div style="

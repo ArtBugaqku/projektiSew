@@ -21,8 +21,8 @@ import PunetRuajtura from "./components/PunetRuajtura";
 import { useEffect, useState } from "react";
 import ProfiliKompaniseVizitor from "./components/ProfiliKompaniseVizitor";
 import LlogaritPagen from "./components/LlogaritPagen";
-import ProfiliAplikantit from "./components/ProfiliAplikantit";
-import ProfiliKompanise from "./components/ProfiliKompanise";
+import ProfiliAplikantitVizitor from "./components/ProfiliAplikantitVizitor";
+import ListaAplikanteve from "./components/ListaAplikanteve";
 
 function App() {
   const { perdoruesiData } = Perdoruesi.usePerdoruesi();
@@ -59,17 +59,14 @@ function App() {
             />
             <Route path="/listaPuneve" element={<ListaPuneve />} />
             <Route path="/listaKompanive" element={<ListaKompanive />} />
+            <Route path="/listaAplikanteve" element={<ListaAplikanteve />} />
             <Route path="/rrethNesh" element={<RrethNesh />} />
             <Route path="/kycja" element={<Kycja />} />
             <Route path="/regjistrimi" element={<Regjistrimi />} />
             <Route path="/kycja" element={<Kycja />} />
             <Route path="/shpallja/:id" element={<Shpallja />} />
             <Route path="/profili/:id" element={<Profili />} />
-            <Route path="/profiliaplikanteve" element={<ProfiliAplikantit />} />
             <Route path="/publikoPune" element={<PublikoPune />} />
-            <Route path="/shpallja/:id" element={<Shpallja />} />
-            <Route path="/profili/:id" element={<Profili />} />
-            <Route path="/profilikompanise" element={<ProfiliKompanise />} />
 
             <Route
               path="/profili/:id/menaxhoShpalljet"
@@ -90,9 +87,11 @@ function App() {
               element={<PunetRuajtura />}
             />
             <Route path="/kompania/:id" element={<ProfiliKompaniseVizitor />} />
-            <Route path="/aplikanti/:id" element={<ProfiliAplikantit />} />
+            <Route
+              path="/profiliAplikantit/:id"
+              element={<ProfiliAplikantitVizitor />}
+            />
             <Route path="/llogaritpagen" element={<LlogaritPagen />} />
-            <Route path="/kompani/:id" element={<ProfiliKompanise />} />
           </Routes>
         </div>
         <Footeri />

@@ -1,433 +1,1146 @@
-import React, { useState, useEffect } from "react";
-import {
-  FaUser,
-  FaEnvelope,
-  FaPhone,
-  FaCalendarAlt,
-  FaMapMarkerAlt,
-  FaGraduationCap,
-  FaBriefcase,
-  FaStar,
-  FaEdit,
-  FaSave,
-  FaTimes,
-  FaLanguage,
-  FaCertificate,
-  FaTools,
-} from "react-icons/fa";
-import Header from "./Header";
-import axios from "axios";
+import { useState, useEffect, useRef } from "react";
+import "../index.css";
 import { useParams } from "react-router-dom";
+import axios from "axios";
+import {
+  Mail,
+  Phone,
+  Plus,
+  Edit2,
+  Upload,
+  Link,
+  X,
+  Camera,
+} from "lucide-react";
+import Perdoruesi from "../PerdoruesiContext";
 
-const ProfiliAplikantit = () => {
+function ProfiliAplikantit() {
+  const { perdoruesiData, setPerdoruesiData } = Perdoruesi.usePerdoruesi();
   const { id } = useParams();
-  const [aplikanti, setAplikanti] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [editing, setEditing] = useState(false);
-  const [tempData, setTempData] = useState({});
 
+  // States for showing/hiding forms
+  const [shfaqLinkeForm, setShfaqLinkeForm] = useState(false);
+  const [shfaqFormenEksperienca, setShfaqFormenEksperienca] = useState(false);
+  const [shfaqFormenEdukimi, setShfaqFormenEdukimi] = useState(false);
+  const [shfaqFormenProjektet, setShfaqFormenProjektet] = useState(false);
+
+  // Photo upload states
+  const [fotoProfile, setFotoProfile] = useState(null);
+  const [poNgarkohetFoto, setPoNgarkohetFoto] = useState(false);
+  const inputFotoRef = useRef(null);
+
+  // Format date for display (DD-MM-YYYY)
+  const formatDateDDMMYYYY = (dateString) => {
+    if (!dateString) return "";
+
+    try {
+      const date = new Date(dateString);
+      const day = String(date.getDate()).padStart(2, "0");
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const year = date.getFullYear();
+      return `${day}-${month}-${year}`;
+    } catch (error) {
+      console.error("Error formatting date:", dateString, error);
+      return "";
+    }
+  };
+
+  // Load data on component mount
   useEffect(() => {
-    const fetchAplikanti = async () => {
+    const fetchData = async () => {
       try {
-        setLoading(true);
         const response = await axios.get(
-          `http://localhost:3000/api/aplikantet/${id}`,
+          `http://localhost:3000/api/profili/${id}`,
         );
-        if (response.data.success) {
-          setAplikanti(response.data.data);
+        setPerdoruesiData(response.data.data);
+
+        // Ngarko foton e profile nese ekziston
+        if (response.data.data.foto) {
+          setFotoProfile(`http://localhost:3000/api/profili/${id}/foto`);
         }
-        setLoading(false);
-      } catch (err) {
-        console.error(err);
-        setError("Gabim në ngarkimin e të dhënave");
-        setLoading(false);
+      } catch (error) {
+        console.error(error);
       }
     };
-
     if (id) {
-      fetchAplikanti();
+      fetchData();
     }
   }, [id]);
 
-  // Funksioni për fillimin e editimit
-  const handleEdit = () => {
-    setTempData(aplikanti);
-    setEditing(true);
+  // Get initials for profile picture
+  const merreShkronjatFillestare = () => {
+    if (perdoruesiData?.emri && perdoruesiData?.mbiemri) {
+      return `${perdoruesiData.emri[0]}${perdoruesiData.mbiemri[0]}`.toUpperCase();
+    } else if (perdoruesiData?.kompania) {
+      return perdoruesiData.kompania.substring(0, 2).toUpperCase();
+    }
+    return "?";
   };
 
-  const handleSave = () => {
-    setAplikanti(tempData);
-    setEditing(false);
+  // ========== FOTO FUNCTIONS ==========
+  const handleNgarkoFoto = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const llojetELejuara = [
+      "image/jpeg",
+      "image/jpg",
+      "image/png",
+      "image/webp",
+      "image/gif",
+    ];
+    if (!llojetELejuara.includes(file.type)) {
+      alert("Vetëm fotot janë të lejuara (JPEG, PNG, WEBP, GIF)");
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      alert("Madhësia e fotos është shumë e madhe. Maksimumi 5MB");
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("photoFile", file);
+    setPoNgarkohetFoto(true);
+
+    try {
+      const response = await axios.post(
+        `http://localhost:3000/api/profili/${id}/ngarko-foto`,
+        formData,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        },
+      );
+
+      if (response.data.success) {
+        setFotoProfile(
+          `http://localhost:3000/api/profili/${id}/foto?t=${Date.now()}`,
+        );
+        alert("Fotoja u ngarkua me sukses!");
+      }
+    } catch (error) {
+      console.error(error);
+      alert(error.response?.data?.message || "Gabim në ngarkimin e fotos");
+    } finally {
+      setPoNgarkohetFoto(false);
+    }
   };
 
-  const handleCancel = () => {
-    setEditing(false);
+  const handleFshijFoto = async () => {
+    if (!window.confirm("Jeni të sigurt që dëshironi të fshini foton?")) {
+      return;
+    }
+
+    try {
+      const response = await axios.delete(
+        `http://localhost:3000/api/profili/${id}/foto`,
+      );
+
+      if (response.data.success) {
+        setFotoProfile(null);
+        alert("Fotoja u fshi me sukses!");
+      }
+    } catch (error) {
+      console.error(error);
+      alert("Gabim në fshirjen e fotos");
+    }
   };
 
-  const handleChange = (field, value) => {
-    setTempData((prev) => ({
-      ...prev,
-      [field]: value,
-    }));
+  // ========== LINKS SECTION ==========
+  const [linkRi, setLinkRi] = useState({
+    platforma: "",
+    linku: "",
+  });
+
+  const handleShtoLink = async () => {
+    if (!linkRi.platforma || !linkRi.linku) {
+      alert("Ju lutem plotësoni të dyja fushat");
+      return;
+    }
+
+    try {
+      const newLink = {
+        platforma: linkRi.platforma,
+        linku: linkRi.linku,
+      };
+
+      const updatedLinks = [...(perdoruesiData?.linqet || []), newLink];
+
+      const response = await axios.put(
+        `http://localhost:3000/api/profili/${id}`,
+        {
+          linqet: updatedLinks,
+        },
+      );
+
+      if (response.data.success) {
+        setPerdoruesiData(response.data.data);
+        setLinkRi({
+          platforma: "",
+          linku: "",
+        });
+        setShfaqLinkeForm(false);
+        alert("Linku u shtua me sukses!");
+      }
+    } catch (error) {
+      console.error(error);
+      alert("Gabim në ruajtjen e linkut");
+    }
   };
 
-  if (!aplikanti) {
-    return <div>diqka shkoi keq</div>;
-  }
+  const handleFshijLinkin = async (index) => {
+    if (!window.confirm("Jeni të sigurt që dëshironi ta fshini këtë link?")) {
+      return;
+    }
 
-  if (loading) {
-    return (
-      <div className="flex flex-col items-center min-h-screen">
-        <Header />
-        <div className="flex justify-center items-center h-64">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-            <p className="text-gray-600">Duke ngarkuar profilin...</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
+    try {
+      const updatedLinks = (perdoruesiData?.linqet || []).filter(
+        (_, i) => i !== index,
+      );
 
-  if (error) {
-    return (
-      <div className="flex flex-col items-center min-h-screen">
-        <Header />
-        <div className="max-w-6xl mx-auto p-8">
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700">
-            <p>{error}</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
+      const response = await axios.put(
+        `http://localhost:3000/api/profili/${id}`,
+        {
+          linqet: updatedLinks,
+        },
+      );
+
+      if (response.data.success) {
+        setPerdoruesiData(response.data.data);
+        alert("Linku u fshi me sukses!");
+      }
+    } catch (error) {
+      console.error(error);
+      alert("Gabim në fshirjen e linkut");
+    }
+  };
+
+  // ========== EXPERIENCE SECTION ==========
+  const [eksperienceRe, setEksperienceRe] = useState({
+    titulli: "",
+    kompania: "",
+    dataFillimit: "",
+    dataMbarimit: "",
+    aktuale: false,
+    pershkrimi: "",
+  });
+
+  const handleShtoEksperiencen = async () => {
+    if (!eksperienceRe.titulli || !eksperienceRe.kompania) {
+      alert("Ju lutem plotësoni të paktën titullin dhe kompaninë");
+      return;
+    }
+
+    // Date validation
+    if (eksperienceRe.dataFillimit && eksperienceRe.dataMbarimit) {
+      const start = new Date(eksperienceRe.dataFillimit);
+      const end = new Date(eksperienceRe.dataMbarimit);
+      const today = new Date();
+
+      if (end < start) {
+        alert("Data e mbarimit nuk mund të jetë më herët se data e fillimit!");
+        return;
+      }
+
+      if (start > today) {
+        alert("Data e fillimit nuk mund të jetë në të ardhmen!");
+        return;
+      }
+
+      if (end > today) {
+        alert("Data e mbarimit nuk mund të jetë në të ardhmen!");
+        return;
+      }
+    }
+
+    try {
+      const newExperience = {
+        titulli: eksperienceRe.titulli,
+        kompania: eksperienceRe.kompania,
+        dataFillimit: eksperienceRe.dataFillimit,
+        dataMbarimit: eksperienceRe.dataMbarimit || null,
+        aktuale: eksperienceRe.aktuale || false,
+        pershkrimi: eksperienceRe.pershkrimi || "",
+      };
+
+      const updatedExperiences = [
+        ...(perdoruesiData?.eksperiencat || []),
+        newExperience,
+      ];
+
+      const response = await axios.put(
+        `http://localhost:3000/api/profili/${id}`,
+        {
+          eksperiencat: updatedExperiences,
+        },
+      );
+
+      if (response.data.success) {
+        setPerdoruesiData(response.data.data);
+        setEksperienceRe({
+          titulli: "",
+          kompania: "",
+          dataFillimit: "",
+          dataMbarimit: "",
+          aktuale: false,
+          pershkrimi: "",
+        });
+        setShfaqFormenEksperienca(false);
+        alert("Eksperienca u shtua me sukses!");
+      }
+    } catch (error) {
+      console.error(error);
+      alert("Gabim në ruajtjen e eksperiencës");
+    }
+  };
+
+  const handleFshijEksperiencen = async (index) => {
+    if (
+      !window.confirm("Jeni të sigurt që dëshironi ta fshini këtë eksperiencë?")
+    ) {
+      return;
+    }
+
+    try {
+      const updatedExperiences = (perdoruesiData?.eksperiencat || []).filter(
+        (_, i) => i !== index,
+      );
+
+      const response = await axios.put(
+        `http://localhost:3000/api/profili/${id}`,
+        {
+          eksperiencat: updatedExperiences,
+        },
+      );
+
+      if (response.data.success) {
+        setPerdoruesiData(response.data.data);
+        alert("Eksperienca u fshi me sukses!");
+      }
+    } catch (error) {
+      console.error(error);
+      alert("Gabim në fshirjen e eksperiencës");
+    }
+  };
+
+  // ========== EDUCATION SECTION ==========
+  const [edukimiRi, setEdukimiRi] = useState({
+    titulli: "",
+    institucioni: "",
+    dataFillimit: "",
+    dataMbarimit: "",
+    aktuale: false,
+    pershkrimi: "",
+  });
+
+  const handleShtoEdukimin = async () => {
+    if (!edukimiRi.titulli || !edukimiRi.institucioni) {
+      alert("Ju lutem plotësoni të paktën titullin dhe institucionin");
+      return;
+    }
+
+    // Date validation
+    if (edukimiRi.dataFillimit && edukimiRi.dataMbarimit) {
+      const start = new Date(edukimiRi.dataFillimit);
+      const end = new Date(edukimiRi.dataMbarimit);
+      const today = new Date();
+
+      if (end < start) {
+        alert("Data e mbarimit nuk mund të jetë më herët se data e fillimit!");
+        return;
+      }
+
+      if (start > today) {
+        alert("Data e fillimit nuk mund të jetë në të ardhmen!");
+        return;
+      }
+
+      if (end > today) {
+        alert("Data e mbarimit nuk mund të jetë në të ardhmen!");
+        return;
+      }
+    }
+
+    try {
+      const newEducation = {
+        titulli: edukimiRi.titulli,
+        institucioni: edukimiRi.institucioni,
+        dataFillimit: edukimiRi.dataFillimit,
+        dataMbarimit: edukimiRi.dataMbarimit || null,
+        aktuale: edukimiRi.aktuale || false,
+        pershkrimi: edukimiRi.pershkrimi || "",
+      };
+
+      const updatedEducation = [
+        ...(perdoruesiData?.edukimi || []),
+        newEducation,
+      ];
+
+      const response = await axios.put(
+        `http://localhost:3000/api/profili/${id}`,
+        {
+          edukimi: updatedEducation,
+        },
+      );
+
+      if (response.data.success) {
+        setPerdoruesiData(response.data.data);
+        setEdukimiRi({
+          titulli: "",
+          institucioni: "",
+          dataFillimit: "",
+          dataMbarimit: "",
+          aktuale: false,
+          pershkrimi: "",
+        });
+        setShfaqFormenEdukimi(false);
+        alert("Edukimi u shtua me sukses!");
+      }
+    } catch (error) {
+      console.error(error);
+      alert("Gabim në ruajtjen e edukimit");
+    }
+  };
+
+  const handleFshijEdukimin = async (index) => {
+    if (!window.confirm("Jeni të sigurt që dëshironi ta fshini këtë edukim?")) {
+      return;
+    }
+
+    try {
+      const updatedEducation = (perdoruesiData?.edukimi || []).filter(
+        (_, i) => i !== index,
+      );
+
+      const response = await axios.put(
+        `http://localhost:3000/api/profili/${id}`,
+        {
+          edukimi: updatedEducation,
+        },
+      );
+
+      if (response.data.success) {
+        setPerdoruesiData(response.data.data);
+        alert("Edukimi u fshi me sukses!");
+      }
+    } catch (error) {
+      console.error(error);
+      alert("Gabim në fshirjen e edukimit");
+    }
+  };
+
+  // ========== PROJECTS SECTION ==========
+  const [projektRi, setProjektRi] = useState({
+    emriProjektit: "",
+    pershkrimi: "",
+    teknologjite: "",
+    linku: "",
+  });
+
+  const handleShtoProjekt = async () => {
+    if (!projektRi.emriProjektit) {
+      alert("Ju lutem plotësoni emrin e projektit");
+      return;
+    }
+
+    try {
+      const newProject = {
+        emriProjektit: projektRi.emriProjektit,
+        pershkrimi: projektRi.pershkrimi || "",
+        teknologjite: projektRi.teknologjite || "",
+        linku: projektRi.linku || "",
+      };
+
+      const updatedProjects = [
+        ...(perdoruesiData?.projektet || []),
+        newProject,
+      ];
+
+      const response = await axios.put(
+        `http://localhost:3000/api/profili/${id}`,
+        {
+          projektet: updatedProjects,
+        },
+      );
+
+      if (response.data.success) {
+        setPerdoruesiData(response.data.data);
+        setProjektRi({
+          emriProjektit: "",
+          pershkrimi: "",
+          teknologjite: "",
+          linku: "",
+        });
+        setShfaqFormenProjektet(false);
+        alert("Projekti u shtua me sukses!");
+      }
+    } catch (error) {
+      console.error(error);
+      alert("Gabim në ruajtjen e projektit");
+    }
+  };
+
+  const handleFshijProjektin = async (index) => {
+    if (
+      !window.confirm("Jeni të sigurt që dëshironi ta fshini këtë projekt?")
+    ) {
+      return;
+    }
+
+    try {
+      const updatedProjects = (perdoruesiData?.projektet || []).filter(
+        (_, i) => i !== index,
+      );
+
+      const response = await axios.put(
+        `http://localhost:3000/api/profili/${id}`,
+        {
+          projektet: updatedProjects,
+        },
+      );
+
+      if (response.data.success) {
+        setPerdoruesiData(response.data.data);
+        alert("Projekti u fshi me sukses!");
+      }
+    } catch (error) {
+      console.error(error);
+      alert("Gabim në fshirjen e projektit");
+    }
+  };
 
   return (
-    <div className="flex flex-col items-center min-h-screen">
-      <Header />
-
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 p-4 md:p-8 w-full">
-        <div className="max-w-6xl mx-auto">
-          {/* Header i profilit me butona edit */}
-          <div className="bg-white rounded-xl shadow-lg overflow-hidden mb-6 mt-10">
-            <div className="bg-gradient-to-r from-blue-600 to-blue-700 p-6">
-              <div className="flex flex-col md:flex-row md:items-center justify-between">
-                <div className="flex items-center gap-6 mb-4 md:mb-0">
-                  <div className="relative">
-                    <img
-                      src={
-                        editing ? tempData.fotoProfili : aplikanti.fotoProfili
-                      }
-                      alt="Foto Profili"
-                      className="w-24 h-24 rounded-full border-4 border-white"
-                    />
-                    {editing && (
-                      <button className="absolute bottom-0 right-0 bg-blue-500 text-white p-2 rounded-full">
-                        <FaEdit size={14} />
-                      </button>
-                    )}
-                  </div>
-                  <div>
-                    <h1 className="text-2xl md:text-3xl font-bold text-white">
-                      {editing ? (
-                        <input
-                          type="text"
-                          value={tempData.emri}
-                          onChange={(e) => handleChange("emri", e.target.value)}
-                          className="bg-transparent border-b border-white text-white"
-                        />
-                      ) : (
-                        aplikanti.emri
-                      )}
-                    </h1>
-                    <p className="text-blue-100 text-lg">
-                      {editing ? (
-                        <input
-                          type="text"
-                          value={tempData.profesioni}
-                          onChange={(e) =>
-                            handleChange("profesioni", e.target.value)
-                          }
-                          className="bg-transparent border-b border-blue-100 text-blue-100"
-                        />
-                      ) : (
-                        aplikanti.profesioni
-                      )}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
+    <div className="max-w-4xl mx-auto mb-2 mt-10">
+      {/* Profile Header */}
+      <div className="bg-white rounded-2xl shadow-lg overflow-hidden mb-2">
+        <div className="h-32 bg-white/30">
+          <div className="flex justify-end p-10 gap-2">
+            <button className="flex items-center justify-center w-10 h-10 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors duration-200">
+              <Edit2 size={20} className="text-gray-600" />
+            </button>
+            <button className="publikoPune flex items-center gap-2 px-4 py-2 ">
+              <Upload size={18} />
+              Ngarko CV
+            </button>
           </div>
+        </div>
 
-          {/* Informacioni kryesor */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Kolona e majtë - Informacione personale dhe kontakt */}
-            <div className="lg:col-span-2 space-y-6">
-              {/* Bio dhe përshkrim */}
-              <div className="bg-white rounded-xl shadow-lg p-6">
-                <h3 className="text-xl font-bold text-gray-800 mb-4 pb-2 border-b">
-                  Rreth Meje
-                </h3>
-                {editing ? (
-                  <textarea
-                    value={tempData.bio}
-                    onChange={(e) => handleChange("bio", e.target.value)}
-                    className="w-full h-40 p-3 border rounded-lg"
-                    rows="4"
+        <div className="px-8 pb-8">
+          <div className="flex flex-col sm:flex-row items-center sm:items-end -mt-16 mb-6">
+            {/* Profile Photo */}
+            <div className="relative group">
+              <div className="w-32 h-32 rounded-full bg-blue-100 flex items-center justify-center text-black text-4xl font-bold shadow-xl border-4 border-blue-100 overflow-hidden">
+                {fotoProfile ? (
+                  <img
+                    src={fotoProfile}
+                    alt="Foto Profile"
+                    className="w-full h-full object-cover"
                   />
                 ) : (
-                  <p className="text-gray-600 leading-relaxed">
-                    {aplikanti.bio}
-                  </p>
+                  <span>{merreShkronjatFillestare()}</span>
                 )}
               </div>
 
-              {/* Edukimi */}
-              <div className="bg-white rounded-xl shadow-lg p-6">
-                <h3 className="text-xl font-bold text-gray-800 mb-6 pb-2 border-b flex items-center gap-2">
-                  <FaGraduationCap /> Edukimi
-                </h3>
+              <div className="absolute bottom-0 right-0 flex gap-1">
+                <button
+                  onClick={() => inputFotoRef.current?.click()}
+                  disabled={poNgarkohetFoto}
+                  className="flex items-center justify-center w-10 h-10 rounded-full bg-blue-500 hover:bg-blue-600 text-white shadow-lg transition-all duration-200 disabled:bg-gray-400"
+                  title="Ngarko foto"
+                >
+                  {poNgarkohetFoto ? (
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  ) : (
+                    <Camera size={18} />
+                  )}
+                </button>
+
+                {fotoProfile && (
+                  <button
+                    onClick={handleFshijFoto}
+                    className="flex items-center justify-center w-10 h-10 rounded-full bg-red-500 hover:bg-red-600 text-white shadow-lg transition-all duration-200"
+                    title="Fshi foto"
+                  >
+                    <X size={18} />
+                  </button>
+                )}
               </div>
 
-              {/* Përvoja profesionale */}
-              <div className="bg-white rounded-xl shadow-lg p-6">
-                <h3 className="text-xl font-bold text-gray-800 mb-6 pb-2 border-b flex items-center gap-2">
-                  <FaBriefcase /> Përvoja Profesionale
-                </h3>
-              </div>
-
-              {/* Aftësitë - Këtu përdoret komponenti i ri */}
-              <div className="bg-white rounded-xl shadow-lg p-6">
-                <h3 className="text-xl font-bold text-gray-800 mb-6 pb-2 border-b">
-                  Aftësitë
-                </h3>
-              </div>
+              <input
+                ref={inputFotoRef}
+                type="file"
+                accept="image/jpeg,image/jpg,image/png,image/webp,image/gif"
+                onChange={handleNgarkoFoto}
+                className="hidden"
+              />
             </div>
 
-            {/* Kolona e djathtë - Informacione shtesë */}
-            <div className="space-y-6">
-              {/* Informacione kontaktuese */}
-              <div className="bg-white rounded-xl shadow-lg p-6">
-                <h3 className="text-xl font-bold text-gray-800 mb-4 pb-2 border-b">
-                  Informacione Kontaktuese
-                </h3>
-                <div className="space-y-4">
-                  <div className="flex items-center gap-3">
-                    <FaEnvelope className="text-blue-500" />
-                    <div>
-                      <p className="text-sm text-gray-500">Email</p>
-                      <p className="text-gray-700">{aplikanti.email}</p>
-                    </div>
-                  </div>
+            <div className="mt-4 sm:mt-0 sm:ml-6 text-center sm:text-left flex-1 relative">
+              <h1 className="text-left text-3xl mb-1">
+                {perdoruesiData?.emri || perdoruesiData?.kompania}{" "}
+                {perdoruesiData?.mbiemri}
+              </h1>
+              <div className="space-y-2 mt-4">
+                <p className="paragrafProfili">
+                  <Mail size={16} />
+                  {perdoruesiData?.email}
+                </p>
+                <p className="paragrafProfili">
+                  <Phone size={16} />
+                  {perdoruesiData?.nrTelefonit}
+                </p>
 
-                  <div className="flex items-center gap-3">
-                    <FaPhone className="text-blue-500" />
-                    <div>
-                      <p className="text-sm text-gray-500">Telefon</p>
-                      <p className="text-gray-700">{aplikanti.telefon}</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-3">
-                    <FaCalendarAlt className="text-blue-500" />
-                    <div>
-                      <p className="text-sm text-gray-500">Data e Lindjes</p>
-                      <p className="text-gray-700">{aplikanti.dataLindjes}</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-3">
-                    <FaMapMarkerAlt className="text-blue-500" />
-                    <div>
-                      <p className="text-sm text-gray-500">Vendodhja</p>
-                      <p className="text-gray-700">{aplikanti.vendodhja}</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Preferencat e punës */}
-              <div className="bg-white rounded-xl shadow-lg p-6">
-                <h3 className="text-xl font-bold text-gray-800 mb-4 pb-2 border-b">
-                  Preferencat e Punës
-                </h3>
-                <div className="space-y-4">
-                  <div>
-                    <p className="text-sm text-gray-500 mb-1">
-                      Pozitat e preferuara
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      {aplikanti.preferencat?.pozitat?.map((pozita, index) => (
-                        <span
-                          key={index}
-                          className="px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-sm"
+                {/* Links Section */}
+                <div className="mt-4">
+                  <div className="flex flex-wrap gap-2">
+                    {perdoruesiData?.linqet?.map((link, index) => (
+                      <div key={index} className="group relative">
+                        <a
+                          href={link.linku}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 px-3 py-1 bg-blue-50 text-blue-600 rounded-full text-sm hover:bg-blue-100 transition-colors"
                         >
-                          {pozita}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div>
-                    <p className="text-sm text-gray-500 mb-1">
-                      Industria e preferuar
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      {aplikanti.preferencat?.industria.map(
-                        (industri, index) => (
-                          <span
-                            key={index}
-                            className="px-3 py-1 bg-green-50 text-green-700 rounded-full text-sm"
-                          >
-                            {industri}
-                          </span>
-                        ),
-                      )}
-                    </div>
-                  </div>
-
-                  <div>
-                    <p className="text-sm text-gray-500 mb-1">
-                      Lokacioni i preferuar
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      {aplikanti.preferencat?.lokacioni.map(
-                        (lokacion, index) => (
-                          <span
-                            key={index}
-                            className="px-3 py-1 bg-purple-50 text-purple-700 rounded-full text-sm"
-                          >
-                            {lokacion}
-                          </span>
-                        ),
-                      )}
-                    </div>
-                  </div>
-
-                  <div>
-                    <p className="text-sm text-gray-500 mb-1">
-                      Paga minimale e pritur
-                    </p>
-                    <p className="text-gray-700 font-medium">
-                      {aplikanti.preferencat?.pagaMin}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Certifikimet */}
-              <div className="bg-white rounded-xl shadow-lg p-6">
-                <h3 className="text-xl font-bold text-gray-800 mb-4 pb-2 border-b">
-                  Certifikimet
-                </h3>
-                <div className="space-y-3">
-                  {aplikanti.certifikimet?.map((certifikimi) => (
-                    <div
-                      key={certifikimi.id}
-                      className="border-l-4 border-blue-500 pl-3"
-                    >
-                      <h4 className="font-semibold text-gray-800">
-                        {certifikimi.emri}
-                      </h4>
-                      <p className="text-gray-600 text-sm">
-                        {certifikimi.institucioni}
-                      </p>
-                      <p className="text-gray-500 text-xs">
-                        {certifikimi.data}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Projekte */}
-              <div className="bg-white rounded-xl shadow-lg p-6">
-                <h3 className="text-xl font-bold text-gray-800 mb-4 pb-2 border-b">
-                  Projektet
-                </h3>
-                <div className="space-y-3">
-                  {aplikanti.projektet?.map((projekti) => (
-                    <div
-                      key={projekti.id}
-                      className="p-3 border rounded-lg hover:bg-gray-50"
-                    >
-                      <h4 className="font-semibold text-gray-800 mb-1">
-                        {projekti.emri}
-                      </h4>
-                      <p className="text-gray-600 text-sm mb-2">
-                        {projekti.pershkrimi}
-                      </p>
-                      <div className="flex flex-wrap gap-2 mb-2">
-                        {projekti.teknologjite.map((tech, index) => (
-                          <span
-                            key={index}
-                            className="px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs"
-                          >
-                            {tech}
-                          </span>
-                        ))}
+                          <Link size={14} />
+                          {link.platforma}
+                        </a>
+                        <button
+                          onClick={() => handleFshijLinkin(index)}
+                          className="absolute -top-1 -right-1 p-0.5 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <X size={12} />
+                        </button>
                       </div>
-                      <a
-                        href={projekti.link}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-blue-600 hover:underline text-sm"
-                      >
-                        Shiko projektin →
-                      </a>
+                    ))}
+                    <button
+                      onClick={() => setShfaqLinkeForm(!shfaqLinkeForm)}
+                      className="inline-flex items-center gap-1 px-3 py-1 border-2 border-dashed border-gray-300 text-gray-600 rounded-full text-sm hover:border-blue-400 hover:text-blue-600 transition-colors"
+                    >
+                      <Plus size={14} />
+                      Shto Link
+                    </button>
+                  </div>
+
+                  {shfaqLinkeForm && (
+                    <div className="mt-3 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                      <div className="space-y-2">
+                        <input
+                          type="text"
+                          placeholder="Platforma (p.sh. LinkedIn, GitHub)"
+                          value={linkRi.platforma}
+                          onChange={(e) =>
+                            setLinkRi({
+                              ...linkRi,
+                              platforma: e.target.value,
+                            })
+                          }
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                        />
+                        <input
+                          type="url"
+                          placeholder="URL"
+                          value={linkRi.linku}
+                          onChange={(e) =>
+                            setLinkRi({ ...linkRi, linku: e.target.value })
+                          }
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                        />
+                        <div className="flex gap-2">
+                          <button
+                            onClick={handleShtoLink}
+                            className="px-3 py-1.5 bg-blue-500 text-white rounded-lg hover:bg-blue-600 text-sm"
+                          >
+                            Ruaj
+                          </button>
+                          <button
+                            onClick={() => setShfaqLinkeForm(false)}
+                            className="px-3 py-1.5 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 text-sm"
+                          >
+                            Anulo
+                          </button>
+                        </div>
+                      </div>
                     </div>
-                  ))}
+                  )}
                 </div>
               </div>
             </div>
           </div>
+        </div>
+      </div>
 
-          {/* CV dhe dokumente */}
-          <div className="mt-6">
-            <div className="bg-white rounded-xl shadow-lg p-6">
-              <h3 className="text-xl font-bold text-gray-800 mb-4 pb-2 border-b">
-                Dokumentet
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="border rounded-lg p-4 text-center hover:bg-gray-50 cursor-pointer">
-                  <div className="text-blue-600 text-3xl mb-2">📄</div>
-                  <h4 className="font-semibold text-gray-800">CV</h4>
-                  <p className="text-gray-600 text-sm">
-                    Ngarko CV_Punesohu.pdf
-                  </p>
-                  <button className="mt-2 text-blue-600 hover:underline text-sm">
-                    Shkarko
-                  </button>
-                </div>
+      {/* Main Content */}
+      <div className="min-h-screen bg-gray-100 ">
+        <div className="max-w-4xl mx-auto ">
+          <div className="bg-white rounded-2xl shadow-lg overflow-hidden p-8">
+            {/* ========== EXPERIENCE SECTION ========== */}
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-semibold text-gray-900">
+                Eksperienca
+              </h2>
+              <button
+                onClick={() =>
+                  setShfaqFormenEksperienca(!shfaqFormenEksperienca)
+                }
+                className="flex items-center gap-1"
+              >
+                <Plus
+                  size={28}
+                  className="hover:bg-gray-100 p-1 rounded-full"
+                />
+              </button>
+            </div>
 
-                <div className="border rounded-lg p-4 text-center hover:bg-gray-50 cursor-pointer">
-                  <div className="text-green-600 text-3xl mb-2">📃</div>
-                  <h4 className="font-semibold text-gray-800">
-                    Letër Rekomandimi
-                  </h4>
-                  <p className="text-gray-600 text-sm">Punesohu.pdf</p>
-                  <button className="mt-2 text-blue-600 hover:underline text-sm">
-                    Shkarko
-                  </button>
-                </div>
-
-                <div className="border rounded-lg p-4 text-center hover:bg-gray-50 cursor-pointer">
-                  <div className="text-purple-600 text-3xl mb-2">🎓</div>
-                  <h4 className="font-semibold text-gray-800">Diploma</h4>
-                  <p className="text-gray-600 text-sm">Diploma_Master.pdf</p>
-                  <button className="mt-2 text-blue-600 hover:underline text-sm">
-                    Shkarko
-                  </button>
+            {shfaqFormenEksperienca && (
+              <div className="px-6 py-4 bg-gray-50 mt-5 mb-6 rounded-lg">
+                <div className="space-y-3">
+                  <input
+                    type="text"
+                    placeholder="Titulli i pozicionit"
+                    value={eksperienceRe.titulli}
+                    onChange={(e) =>
+                      setEksperienceRe({
+                        ...eksperienceRe,
+                        titulli: e.target.value,
+                      })
+                    }
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Kompania"
+                    value={eksperienceRe.kompania}
+                    onChange={(e) =>
+                      setEksperienceRe({
+                        ...eksperienceRe,
+                        kompania: e.target.value,
+                      })
+                    }
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                  <div className="grid grid-cols-2 gap-3">
+                    <input
+                      type="date"
+                      placeholder="Data fillimit"
+                      value={eksperienceRe.dataFillimit}
+                      onChange={(e) =>
+                        setEksperienceRe({
+                          ...eksperienceRe,
+                          dataFillimit: e.target.value,
+                        })
+                      }
+                      max={new Date().toISOString().split("T")[0]}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                    <input
+                      type="date"
+                      placeholder="Data mbarimit"
+                      value={eksperienceRe.dataMbarimit}
+                      onChange={(e) =>
+                        setEksperienceRe({
+                          ...eksperienceRe,
+                          dataMbarimit: e.target.value,
+                        })
+                      }
+                      max={new Date().toISOString().split("T")[0]}
+                      min={eksperienceRe.dataFillimit || ""}
+                      disabled={eksperienceRe.aktuale}
+                      className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                        eksperienceRe.aktuale ? "bg-gray-100 text-gray-500" : ""
+                      }`}
+                    />
+                  </div>
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      id="aktuale"
+                      checked={eksperienceRe.aktuale}
+                      onChange={(e) =>
+                        setEksperienceRe({
+                          ...eksperienceRe,
+                          aktuale: e.target.checked,
+                          dataMbarimit: e.target.checked
+                            ? ""
+                            : eksperienceRe.dataMbarimit,
+                        })
+                      }
+                      className="h-4 w-4 text-blue-600 rounded"
+                    />
+                    <label
+                      htmlFor="aktuale"
+                      className="ml-2 text-sm text-gray-700"
+                    >
+                      Aktualisht punoj këtu
+                    </label>
+                  </div>
+                  <textarea
+                    placeholder="Përshkrimi"
+                    value={eksperienceRe.pershkrimi}
+                    onChange={(e) =>
+                      setEksperienceRe({
+                        ...eksperienceRe,
+                        pershkrimi: e.target.value,
+                      })
+                    }
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    rows="3"
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleShtoEksperiencen}
+                      className="publikoPune"
+                    >
+                      Ruaj
+                    </button>
+                    <button
+                      onClick={() => setShfaqFormenEksperienca(false)}
+                      className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
+                    >
+                      Anulo
+                    </button>
+                  </div>
                 </div>
               </div>
+            )}
+
+            <div className="px-6 py-4">
+              {!perdoruesiData?.eksperiencat ||
+              perdoruesiData.eksperiencat.length === 0 ? (
+                <p className="text-gray-500 text-center py-8">
+                  Nuk ka përvoja të shtuara ende
+                </p>
+              ) : (
+                <div className="space-y-4">
+                  {perdoruesiData.eksperiencat.map((exp, index) => (
+                    <div
+                      key={index}
+                      className="border-l-4 border-blue-500 pl-4 py-2 relative group hover:bg-gray-50 rounded-r-lg transition-colors"
+                    >
+                      <button
+                        onClick={() => handleFshijEksperiencen(index)}
+                        className="absolute top-2 right-2 p-1 text-red-500 hover:bg-red-50 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <X size={18} />
+                      </button>
+                      <h3 className="font-semibold text-lg text-gray-900">
+                        {exp.titulli}
+                      </h3>
+                      <p className="text-gray-700">{exp.kompania}</p>
+                      <p className="text-sm text-gray-500">
+                        {formatDateDDMMYYYY(exp.dataFillimit)} -{" "}
+                        {exp.aktuale
+                          ? "Aktuale"
+                          : formatDateDDMMYYYY(exp.dataMbarimit)}
+                      </p>
+                      {exp.pershkrimi && (
+                        <p className="text-gray-600 mt-2">{exp.pershkrimi}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <hr className="border-gray-200 my-8" />
+
+            {/* ========== EDUCATION SECTION ========== */}
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-semibold text-gray-900">Edukimi</h2>
+              <button
+                onClick={() => setShfaqFormenEdukimi(!shfaqFormenEdukimi)}
+                className="flex items-center gap-1"
+              >
+                <Plus
+                  size={28}
+                  className="hover:bg-gray-100 p-1 rounded-full"
+                />
+              </button>
+            </div>
+
+            {shfaqFormenEdukimi && (
+              <div className="px-6 py-4 bg-gray-50 mb-6 rounded-lg">
+                <div className="space-y-3">
+                  <input
+                    type="text"
+                    placeholder="Titulli (Diplomë, Shkollim)"
+                    value={edukimiRi.titulli}
+                    onChange={(e) =>
+                      setEdukimiRi({
+                        ...edukimiRi,
+                        titulli: e.target.value,
+                      })
+                    }
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Institucioni"
+                    value={edukimiRi.institucioni}
+                    onChange={(e) =>
+                      setEdukimiRi({
+                        ...edukimiRi,
+                        institucioni: e.target.value,
+                      })
+                    }
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                  <div className="grid grid-cols-2 gap-3">
+                    <input
+                      type="date"
+                      placeholder="Data fillimit"
+                      value={edukimiRi.dataFillimit}
+                      onChange={(e) =>
+                        setEdukimiRi({
+                          ...edukimiRi,
+                          dataFillimit: e.target.value,
+                        })
+                      }
+                      max={new Date().toISOString().split("T")[0]}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                    <input
+                      type="date"
+                      placeholder="Data mbarimit"
+                      value={edukimiRi.dataMbarimit}
+                      onChange={(e) =>
+                        setEdukimiRi({
+                          ...edukimiRi,
+                          dataMbarimit: e.target.value,
+                        })
+                      }
+                      max={new Date().toISOString().split("T")[0]}
+                      min={edukimiRi.dataFillimit || ""}
+                      disabled={edukimiRi.aktuale}
+                      className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                        edukimiRi.aktuale ? "bg-gray-100 text-gray-500" : ""
+                      }`}
+                    />
+                  </div>
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      id="aktuale"
+                      checked={edukimiRi.aktuale}
+                      onChange={(e) =>
+                        setEdukimiRi({
+                          ...edukimiRi,
+                          aktuale: e.target.checked,
+                          dataMbarimit: e.target.checked
+                            ? ""
+                            : edukimiRi.dataMbarimit,
+                        })
+                      }
+                      className="h-4 w-4 text-blue-600 rounded"
+                    />
+                    <label
+                      htmlFor="aktualet"
+                      className="ml-2 text-sm text-gray-700"
+                    >
+                      Aktualisht studioj këtu
+                    </label>
+                  </div>
+                  <textarea
+                    placeholder="Përshkrimi"
+                    value={edukimiRi.pershkrimi}
+                    onChange={(e) =>
+                      setEdukimiRi({
+                        ...edukimiRi,
+                        pershkrimi: e.target.value,
+                      })
+                    }
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    rows="3"
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleShtoEdukimin}
+                      className="publikoPune"
+                    >
+                      Ruaj
+                    </button>
+                    <button
+                      onClick={() => setShfaqFormenEdukimi(false)}
+                      className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
+                    >
+                      Anulo
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="px-6 py-4">
+              {!perdoruesiData?.edukimi ||
+              perdoruesiData.edukimi.length === 0 ? (
+                <p className="text-gray-500 text-center py-8">
+                  Nuk ka arsimim të shtuar ende
+                </p>
+              ) : (
+                <div className="space-y-4">
+                  {perdoruesiData.edukimi.map((edu, index) => (
+                    <div
+                      key={index}
+                      className="border-l-4 border-purple-500 pl-4 py-2 relative group hover:bg-gray-50 rounded-r-lg transition-colors"
+                    >
+                      <button
+                        onClick={() => handleFshijEdukimin(index)}
+                        className="absolute top-2 right-2 p-1 text-red-500 hover:bg-red-50 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <X size={18} />
+                      </button>
+                      <h3 className="font-semibold text-lg text-gray-900">
+                        {edu.titulli}
+                      </h3>
+                      <p className="text-gray-700">{edu.institucioni}</p>
+                      <p className="text-sm text-gray-500">
+                        {formatDateDDMMYYYY(edu.dataFillimit)} -{" "}
+                        {edu.aktuale
+                          ? "Aktuale"
+                          : formatDateDDMMYYYY(edu.dataMbarimit)}
+                      </p>
+                      {edu.pershkrimi && (
+                        <p className="text-gray-600 mt-2">{edu.pershkrimi}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <hr className="border-gray-200 my-8" />
+
+            {/* ========== PROJECTS SECTION ========== */}
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-semibold text-gray-900">
+                Projektet
+              </h2>
+              <button
+                onClick={() => setShfaqFormenProjektet(!shfaqFormenProjektet)}
+                className="flex items-center gap-1"
+              >
+                <Plus
+                  size={28}
+                  className="hover:bg-gray-100 p-1 rounded-full"
+                />
+              </button>
+            </div>
+
+            {shfaqFormenProjektet && (
+              <div className="px-6 py-4 bg-gray-50 mb-6 rounded-lg">
+                <div className="space-y-3">
+                  <input
+                    type="text"
+                    placeholder="Emri i projektit"
+                    value={projektRi.emriProjektit}
+                    onChange={(e) =>
+                      setProjektRi({
+                        ...projektRi,
+                        emriProjektit: e.target.value,
+                      })
+                    }
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                  <textarea
+                    placeholder="Përshkrimi"
+                    value={projektRi.pershkrimi}
+                    onChange={(e) =>
+                      setProjektRi({
+                        ...projektRi,
+                        pershkrimi: e.target.value,
+                      })
+                    }
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    rows="3"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Teknologjitë (p.sh. React, Node.js, MongoDB)"
+                    value={projektRi.teknologjite}
+                    onChange={(e) =>
+                      setProjektRi({
+                        ...projektRi,
+                        teknologjite: e.target.value,
+                      })
+                    }
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Link (opsionale)"
+                    value={projektRi.linku}
+                    onChange={(e) =>
+                      setProjektRi({ ...projektRi, linku: e.target.value })
+                    }
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                  <div className="flex gap-2">
+                    <button onClick={handleShtoProjekt} className="publikoPune">
+                      Ruaj
+                    </button>
+                    <button
+                      onClick={() => setShfaqFormenProjektet(false)}
+                      className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
+                    >
+                      Anulo
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="px-6 py-4">
+              {!perdoruesiData?.projektet ||
+              perdoruesiData.projektet.length === 0 ? (
+                <p className="text-gray-500 text-center py-8">
+                  Nuk ka projekte të shtuara ende
+                </p>
+              ) : (
+                <div className="space-y-4">
+                  {perdoruesiData.projektet.map((proj, index) => (
+                    <div
+                      key={index}
+                      className="border-l-4 border-green-500 pl-4 py-2 relative group hover:bg-gray-50 rounded-r-lg transition-colors"
+                    >
+                      <button
+                        onClick={() => handleFshijProjektin(index)}
+                        className="absolute top-2 right-2 p-1 text-red-500 hover:bg-red-50 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <X size={18} />
+                      </button>
+                      <h3 className="font-semibold text-lg text-gray-900">
+                        {proj.emriProjektit}
+                      </h3>
+                      {proj.pershkrimi && (
+                        <p className="text-gray-600 mt-2">{proj.pershkrimi}</p>
+                      )}
+                      {proj.teknologjite && (
+                        <p className="text-sm text-gray-500 mt-2">
+                          <span className="font-medium">Teknologjitë:</span>{" "}
+                          {proj.teknologjite}
+                        </p>
+                      )}
+                      {proj.linku && (
+                        <a
+                          href={proj.linku}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-500 hover:underline text-sm mt-2 inline-block"
+                        >
+                          Shiko projektin →
+                        </a>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>
       </div>
     </div>
   );
-};
+}
 
 export default ProfiliAplikantit;
